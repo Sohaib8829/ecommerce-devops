@@ -1,6 +1,38 @@
 services:
+  
+  db:
+
+    image: postgres:16
+    
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: shop123
+      POSTGRES_DB: products
+    
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop -d products"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
   products:
+
     build: ./services/products
+    
     ports:
       - "8000:8000"
+    
+    environment:
+      DATABASE_URL: postgresql://shop:shop123@db:5432/products
+    
+    depends_on:
+      db:
+        condition: service_healthy
 
+
+volumes:
+  pgdata:
