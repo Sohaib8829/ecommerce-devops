@@ -102,3 +102,13 @@ def get_product(product_id: int):
     if row is None:
         raise HTTPException(status_code=404, detail="Product nahi mila")
     return row_to_dict(row)
+
+
+@app.get("/ready")
+def ready():
+    try:
+        with psycopg.connect(DATABASE_URL, connect_timeout=3) as conn:
+            conn.execute("SELECT 1")
+    except psycopg.Error:
+        raise HTTPException(status_code=503, detail="Database ready nahi")
+    return {"status": "ready"}
