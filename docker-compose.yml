@@ -19,12 +19,20 @@ services:
       retries: 10
 
 
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD","redis-cli","ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
+
+      
   products:
 
     build: ./services/products
-    
-    ports:
-      - "8000:8000"
     
     environment:
       DATABASE_URL: postgresql://shop:shop123@db:5432/products
@@ -38,6 +46,46 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+
+
+  orders:
+    
+    build: ./services/orders
+    
+    environment:
+      PRODUCTS_URL: http://products:8000
+      REDIS_URL: redis://redis:6379/0
+    
+    depends_on:
+      redis:
+        condition: service_healthy
+      products:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD","python","-c","import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+
+
+  frontend:
+    
+    build: ./frontend
+    
+    ports:
+      - "8080:80"
+
+    depends_on:
+      products:
+        condition: service_healthy
+
+      orders:
+        condition: service_healthy
+        
 
 volumes:
   pgdata:
