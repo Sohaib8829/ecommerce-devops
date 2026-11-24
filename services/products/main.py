@@ -139,3 +139,16 @@ def reserve(product_id: int, body: Reservation):
         raise HTTPException(status_code=409, detail="Stock kam hai")
 
     return row_to_dict(row)
+
+
+@app.post("/products/{product_id}/release")
+def release(product_id: int, body: Reservation):
+    with get_conn() as conn:
+        row = conn.execute(
+            "UPDATE products SET stock = stock + %s WHERE id = %s "
+            "RETURNING id, name, category, price, stock",
+            (body.quantity, product_id),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Product nahi mila")
+    return row_to_dict(row)
