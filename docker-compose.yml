@@ -19,6 +19,27 @@ services:
       retries: 10
 
 
+  orders-db:
+    
+    image: postgres:16
+    
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: shop123
+      POSTGRES_DB: orders
+    
+    volumes:
+      - ordersdata:/var/lib/postgresql/data
+    
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U shop -d orders"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
+
+
   redis:
     image: redis:7-alpine
     healthcheck:
@@ -54,6 +75,7 @@ services:
     build: ./services/orders
     
     environment:
+      ORDERS_DATABASE_URL: postgresql://shop:shop123@orders-db:5432/orders
       PRODUCTS_URL: http://products:8000
       REDIS_URL: redis://redis:6379/0
     
@@ -61,6 +83,8 @@ services:
       redis:
         condition: service_healthy
       products:
+        condition: service_healthy
+      orders-db:
         condition: service_healthy
 
     healthcheck:
@@ -89,3 +113,4 @@ services:
 
 volumes:
   pgdata:
+  ordersdata:  
