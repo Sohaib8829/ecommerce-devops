@@ -1,0 +1,28 @@
+name: CI
+  
+on: 
+  push:
+    branches: [main]
+
+  pull_request:
+    branches: [main]
+
+jobs:
+  
+  validate-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: validate docker compose file
+        run: docker compose config -q
+
+  build-images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [services/products, services/orders,frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Builid ${{matrix.service}}
+        run: docker build -t test-image ${{matrix.service}}
+    
