@@ -1,16 +1,68 @@
 import os
+import time
+from contextlib import asynccontextmanager
 
 import httpx
+import psycopg
 import redis
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 PRODUCTS_URL = os.getenv("PRODUCTS_URL", "http://products:8000")
+ORDERS_DATABASE_URL = os.getenv(
+    "ORDERS_DATABASE_URL", "postgresql://shop:shop123@orders-db:5432/orders"
+)
 CART_TTL_SECONDS = 7 * 24 * 60 * 60  # 7 din
 
 r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
-app = FastAPI(title="Orders Service")
+
+
+def get_conn():
+    return psycopg.connect(ORDERS_DATABASE_URL)
+
+
+def init_db():
+    for attempt in range(10):
+        try:
+            with get_conn() as conn:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS orders (
+                        id SERIAL PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        total INTEGER NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'confirmed',
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS order_items (
+                        id SERIAL PRIMARY KEY,
+                        order_id INTEGER NOT NULL REFERENCES orders(id),
+                        product_id INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        price INTEGER NOT NULL,
+                        quantity INTEGER NOT NULL
+                    )
+                    """
+                )
+            return
+        except psycopg.OperationalError:
+            print(f"Orders DB ready nahi, dobara try ({attempt + 1}/10)")
+            time.sleep(2)
+    raise RuntimeError("Orders database se connect nahi ho saka")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="Orders Service", lifespan=lifespan)
 
 
 class CartItem(BaseModel):
@@ -49,6 +101,11 @@ def ready():
         r.ping()
     except redis.RedisError:
         raise HTTPException(status_code=503, detail="Redis ready nahi")
+    try:
+        with psycopg.connect(ORDERS_DATABASE_URL, connect_timeout=3) as conn:
+            conn.execute("SELECT 1")
+    except psycopg.Error:
+        raise HTTPException(status_code=503, detail="Orders database ready nahi")
     return {"status": "ready"}
 
 
