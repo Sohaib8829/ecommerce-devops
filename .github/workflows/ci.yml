@@ -26,3 +26,15 @@ jobs:
       - name: Builid ${{matrix.service}}
         run: docker build -t test-image ${{matrix.service}}
     
+  test-job:
+    runs-on: ubuntu-latest
+    needs: [validate-compose , build-images]
+    if: always()
+    steps:
+      - name: Check all jobs status
+        run: |
+          if [["${{contains(needs.*.result,'failure')}}" == "true" || "${{contains(needs.*.result,'cancelled')}}" == "true"]]; then
+            echo "One or more required jobs were failed or cancelled"
+            exit 1
+          fi
+          echo "All required checks passed"
