@@ -13,7 +13,7 @@ for i in $(seq 1 30); do
 done
 
 # 1. Frontend page
-curl -fsS "$BASE/" | grep -q "Wrong" || fail "frontend page loaded"
+curl -fsS "$BASE/" | grep -q "ShopStack" || fail "frontend page loaded"
 pass "frontend page theek hai"
 
 # 2. Products ki list (kam az kam 6)
